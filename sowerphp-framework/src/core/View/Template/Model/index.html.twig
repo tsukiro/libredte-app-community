@@ -1,0 +1,888 @@
+{% extends "View/Layout/" ~ __view_layout ~ ".html.twig" %}
+
+{% block content %}
+
+<h1 class="page-header">Listado de {{ data.model.verbose_name_plural|lower }}</h1>
+<p>{{ data.model.db_table_comment }}</p>
+
+<table id="registers" class="table table-bordered table-hover table-sm align-middle display" style="width:100%">
+    <caption>
+        Registros seleccionados: <span class="selected-rows">0</span>.
+    </caption>
+    <thead>
+        <tr>
+            <th rowspan="2" class="text-center" style="width:1px">
+                <input type="checkbox" class="form-check-input" />
+            </th>
+            {% for field in data.model.list_display %}
+                <th class="text-center">{{ data.fields[field].verbose_name }}</th>
+            {% endfor %}
+            <th class="text-center" style="width:1px">
+                <i class="fa-solid fa-cogs fa-fw"></i>
+            </th>
+        </tr>
+        <tr class="filters-row">
+            {% for field in data.model.list_display %}
+                <th>
+                    {% if data.fields[field].searchable %}
+                        <div class="input-group input-group-sm">
+                            {% if data.fields[field].cast == 'date' or data.fields[field].cast == 'datetime' %}
+                                <input type="date" class="form-control form-control-sm toggle-form-search-input" data-type="original" />
+                                <input type="text" class="form-control form-control-sm toggle-form-search-input d-none" data-type="alternate" name="{{field}}" />
+                                <button class="btn btn-secondary toggle-form-search-btn border-start-0" type="button">
+                                    <i class="fa-solid fa-calendar"></i>
+                                </button>
+                            {% elseif data.fields[field].cast == 'bool' %}
+                                <select class="form-select form-select-sm toggle-form-search-input" data-type="original">
+                                    <option value="">Sin filtrar</option>
+                                    {% for value, option in data.fields[field].choices %}
+                                        <option value="{{ value }}">{{ option }}</option>
+                                    {% endfor %}
+                                </select>
+                                <input type="text" class="form-control form-control-sm toggle-form-search-input d-none" data-type="alternate" name="{{field}}" />
+                                <button class="btn btn-secondary toggle-form-search-btn border-start-0" type="button">
+                                    <i class="fa-solid fa-list"></i>
+                                </button>
+                            {% else %}
+                                <input type="text" class="form-control form-control-sm" name="{{field}}" />
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </th>
+            {% endfor %}
+            <th>
+                <button class="btn btn-primary btn-sm w-100 h-100 reset-table">
+                    <i class="fa-solid fa-redo fa-fw"></i>
+                </button>
+            </th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<div class="modal fade" data-filter-modal-for="registers" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Filtros avanzados de columnas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Coincidencia de filtros por columna:</label>
+                    <div class="filter-matching">
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="matchingOptions" value="all" checked />
+                            <label class="form-check-label">Coincidir con TODOS los siguientes</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="matchingOptions" value="any" />
+                            <label class="form-check-label">Coincidir con CUALQUIERA de los siguientes</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="filter-conditions">
+                    <!-- Aquí se añadirán dinámicamente las condiciones de filtrado -->
+                </div>
+                <div class="text-end">
+                    <button type="button" class="btn btn-secondary add-condition-btn">
+                        <i class="fa-solid fa-plus"></i> Añadir condición
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="smartFilterApply(this)">Aplicar filtros</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+// Determinar diccionario con los filtros.
+function smartFilterGenerateFilterDictionaryFromConditions(filterModal) {
+    const matchingOption = filterModal.querySelector('input[name="matchingOptions"]:checked').value;
+    const conditions = Array.from(filterModal.querySelectorAll('.filter-condition'))
+        .map(condition => {
+            const column = condition.querySelector('.column-select').value;
+            const operator = condition.querySelector('.operator-select').value;
+            const value = condition.querySelector('.value-input').value.trim();
+
+            if (value) {
+                return {
+                    column,
+                    condition: `${operator}${value}`
+                };
+            }
+            return null;
+        })
+        .filter(condition => condition !== null)
+        .reduce((acc, curr) => {
+            if (!acc[curr.column]) {
+                acc[curr.column] = [];
+            }
+            acc[curr.column].push(curr.condition);
+            return acc;
+        }, {})
+    ;
+    const filterDictionary = {
+        matching: matchingOption === 'any' ? 'OR' : 'AND',
+        conditions: conditions
+    };
+    return filterDictionary;
+}
+
+function smartFilterGenerateFilterDictionaryFromInputs(tableId) {
+    const filterJSON = {
+        matching: 'AND', // Predeterminado a 'AND'.
+        conditions: {}
+    };
+
+    const filterRow = document.querySelector(`#${tableId} .filters-row`);
+    filterRow.querySelectorAll('th').forEach(th => {
+        const input = th.querySelector('input[type="text"]');
+        if (input && input.value.trim() !== '') {
+            const column = input.name;
+            const value = input.value.trim();
+
+            let operatorMatching = '&&'; // Default matching operator '&&' (AND).
+            if (value.includes('||')) {
+                operatorMatching = '||';
+            }
+            filterJSON.matching = (operatorMatching === '||') ? 'OR' : 'AND';
+
+            const values = value.split(operatorMatching).map(v => v.trim());
+
+            values.forEach(val => {
+                const smartFilterOperators = ['!=', '!', '=', '>=', '<=', '>', '<', '^', '~', '$', 'in:', 'notin:', 'between:', 'notbetween:', 'date:', 'year:', 'month:'];
+                let operator = smartFilterOperators.find(op => val.startsWith(op)) || '~';
+                let conditionValue = val.replace(operator, '').trim();
+
+                if (!filterJSON.conditions[column]) {
+                    filterJSON.conditions[column] = [];
+                }
+
+                filterJSON.conditions[column].push(`${operator}${conditionValue}`);
+            });
+        }
+    });
+
+    return filterJSON;
+}
+
+// Función para aplicar los filtros y generar el diccionario
+function smartFilterApply(button) {
+    // Elementos de la página necesarios.
+    const filterModal = button.closest('.modal');
+    const tableId = filterModal.getAttribute('data-filter-modal-for');
+    const filterDictionary = smartFilterGenerateFilterDictionaryFromConditions(filterModal);
+    const table = document.getElementById(tableId);
+    const filterRow = table.querySelector('thead tr.filters-row');
+
+    // Iterar sobre las columnas de la fila de filtros.
+    filterRow.querySelectorAll('th').forEach(th => {
+        // Obtener input de la columna y sus condiciones.
+        const input = th.querySelector('input[type="text"]');
+        if (input === null) {
+            return;
+        }
+
+        // Alternar entre tipo de input si es necesario.
+        const alternateInput = th.querySelector('.toggle-form-search-input[data-type="alternate"]');
+        if (alternateInput && alternateInput.classList.contains('d-none')) {
+            const toggleButton = th.querySelector('.toggle-form-search-btn');
+            if (toggleButton) {
+                toggleButton.click();
+            }
+        }
+
+        // Buscar las condiciones de la columna.
+        const columnName = input.getAttribute('name');
+        const columnConditions = filterDictionary.conditions[columnName] || [];
+        if (columnConditions.length == 0) {
+            input.value = '';
+            return;
+        }
+
+        // Aplicar las condiciones a la columna.
+        const filterValue = columnConditions.join(filterDictionary.matching == 'AND' ? ' && ' : ' || ');
+        input.value = filterValue;
+    });
+
+    // Cerrar el modal.
+    const modalInstance = bootstrap.Modal.getInstance(filterModal);
+    modalInstance.hide();
+
+    // Lanzar búsqueda.
+    datatablesTriggerSearch(tableId);
+}
+
+// Generar las opciones para seleccionar columnas agrupadas por visibles y no visibles
+function smartFilterGenerateColumnSelectOptions(columns) {
+    const visibleColumns = columns
+        .filter(col => col.visible && col.data)
+        .map(col => `<option value="${col.data}" data-visible="1">${col.verbose_name}</option>`)
+        .join('');
+    const hiddenColumns = columns
+        .filter(col => !col.visible && col.data)
+        .map(col => `<option value="${col.data}" data-visible="0">${col.verbose_name}</option>`)
+        .join('');
+
+    let options = '';
+    if (visibleColumns) {
+        options += `
+            <optgroup label="Columnas visibles">
+                ${visibleColumns}
+            </optgroup>
+        `;
+    }
+    if (hiddenColumns) {
+        options += `
+            <optgroup label="Columnas ocultas">
+                ${hiddenColumns}
+            </optgroup>
+        `;
+    }
+    return options || '<option disabled>No hay columnas buscables disponibles</option>';
+}
+
+// Función que abre el modal de filtrado con SmartFilter.
+function datatablesSmartFilterModal(dtInstance) {
+    const tableId = dtInstance.table().node().id;
+    const filterModal = document.querySelector(`[data-filter-modal-for="${tableId}"]`);
+
+    // Limpiar condiciones anteriores.
+    filterModal.querySelector('.filter-conditions').innerHTML = '';
+
+    // Generar el diccionario de filtros a partir de los inputs actuales.
+    const filterDictionary = smartFilterGenerateFilterDictionaryFromInputs(tableId);
+
+    // Añadir condiciones existentes al modal.
+    if (Object.keys(filterDictionary.conditions).length > 0) {
+        Object.keys(filterDictionary.conditions).forEach(column => {
+            filterDictionary.conditions[column].forEach(condition => {
+                const smartFilterOperators = ['!=', '!', '=', '>=', '<=', '>', '<', '^', '~', '$', 'in:', 'notin:', 'between:', 'notbetween:', 'date:', 'year:', 'month:'];
+                const operator = smartFilterOperators.find(op => condition.startsWith(op)) || '~';
+                const value = condition.replace(operator, '').trim();
+                smartFilterAddCondition(dtInstance, filterModal, column, operator, value);
+            });
+        });
+    } else {
+        // Añadir una primera condición por defecto si no existen condiciones.
+        smartFilterAddCondition(dtInstance, filterModal);
+    }
+
+    // Configurar el botón de añadir condición, asegurando que solo se añada un escuchador de eventos.
+    const addConditionBtn = filterModal.querySelector('.add-condition-btn');
+    if (!addConditionBtn.hasAttribute('data-event-added')) {
+        addConditionBtn.addEventListener('click', () => smartFilterAddCondition(dtInstance, filterModal));
+        addConditionBtn.setAttribute('data-event-added', 'true');
+    }
+
+    // Abrir el modal.
+    const modalInstance = new bootstrap.Modal(filterModal, { keyboard: true });
+    modalInstance.show();
+}
+
+// Añadir una nueva condición de filtrado.
+function smartFilterAddCondition(dtInstance, filterModal, column = '', operator = '=', value = '') {
+    const columns = dtInstance.settings().init().columns;
+    const columnSelectOptions = smartFilterGenerateColumnSelectOptions(columns);
+    const condition = `
+        <div class="input-group mb-3 filter-condition">
+            <select class="form-select column-select">
+                ${columnSelectOptions}
+            </select>
+            <select class="form-select operator-select">
+                <option value="=" ${operator === '=' ? 'selected' : ''}>Igual a</option>
+                <option value="!=" ${operator === '!=' ? 'selected' : ''}>Distinto a</option>
+                <option value=">=" ${operator === '>=' ? 'selected' : ''}>Mayor o igual que</option>
+                <option value="<=" ${operator === '<=' ? 'selected' : ''}>Menor o igual que</option>
+                <option value=">" ${operator === '>' ? 'selected' : ''}>Mayor que</option>
+                <option value="<" ${operator === '<' ? 'selected' : ''}>Menor que</option>
+                <option value="^" ${operator === '^' ? 'selected' : ''}>Empieza con</option>
+                <option value="~" ${operator === '~' ? 'selected' : ''}>Contiene</option>
+                <option value="$" ${operator === '$' ? 'selected' : ''}>Termina con</option>
+                <option value="in:" ${operator === 'in:' ? 'selected' : ''}>Pertenece a la lista</option>
+                <option value="notin:" ${operator === 'notin:' ? 'selected' : ''}>No pertenece a la lista</option>
+                <option value="between:" ${operator === 'between:' ? 'selected' : ''}>Entre 2 valores</option>
+                <option value="notbetween:" ${operator === 'notbetween:' ? 'selected' : ''}>No entre 2 valores</option>
+                <option value="date:" ${operator === 'date:' ? 'selected' : ''}>Fecha (AAAAMMDD)</option>
+                <option value="year:" ${operator === 'year:' ? 'selected' : ''}>Año (AAAA)</option>
+                <option value="month:" ${operator === 'month:' ? 'selected' : ''}>Mes (AAAAMM)</option>
+            </select>
+            <input type="text" class="form-control value-input" value="${value}" />
+            <button class="btn btn-danger remove-condition-btn" type="button"><i class="fa-solid fa-times"></i></button>
+        </div>
+    `;
+    filterModal.querySelector('.filter-conditions').insertAdjacentHTML('beforeend', condition);
+
+    // Seleccionar la columna correcta.
+    if (column) {
+        const lastCondition = filterModal.querySelector('.filter-condition:last-child');
+        const columnSelect = lastCondition.querySelector('.column-select');
+        columnSelect.value = column;
+    }
+
+    // Añadir evento al botón de eliminar condición.
+    filterModal.querySelectorAll('.remove-condition-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            this.closest('.filter-condition').remove();
+        });
+    });
+}
+
+function datatablesTriggerSearch(tableId) {
+    const dtInstance = $(`#${tableId}`).DataTable();
+    dtInstance.columns().every(function () {
+        const column = this;
+        const input = $(`.filters-row th input[name="${column.dataSrc()}"]`);
+        if (input.length) {
+            column.search(input.val()).draw();
+        }
+    });
+}
+
+$(document).ready(function() {
+
+    // Inicializar DataTables.
+    $('#registers').DataTable({
+        language: {
+            url: 'https://cdn.datatables.net/plug-ins/2.1.2/i18n/es-MX.json',
+        },
+        rowId: 'id',
+        ajax: '{{_url}}/api{{_route.url.controller}}?format=datatables',
+        serverSide: true,
+        processing: true,
+        autoWidth: false,
+        lengthMenu: [10, 20, 25, 50, 75, 100],
+        pageLength: {{ data.model.list_per_page }},
+        fixedHeader: true,
+        orderCellsTop: true,
+        order: [],
+        /*keys: {
+            columns: ':not(:first-child):not(:last-child)'
+        },*/
+        layout: {
+            topEnd: {
+                search: {},
+                buttons: [
+                    {% if 'add' in data.model.default_permissions %}
+                        {
+                            titleAttr: 'Crear {{ data.model.verbose_name|lower }}',
+                            text: '<i class="fa-solid fa-plus fa-fw"></i>',
+                            className: 'btn-sm',
+                            action: function ( e, dt, node, config ) {
+                                window.location.href = '{{ _url }}{{ _route.url.controller }}/create';
+                            }
+                        },
+                    {% endif %}
+                    {
+                        titleAttr: 'Filtros de columnas avanzados',
+                        text: '<i class="fa-solid fa-filter fa-fw"></i>',
+                        className: 'btn-sm',
+                        action: function(e, dt, node, config) {
+                            datatablesSmartFilterModal(dt);
+                        },
+                    },
+                    {
+                        extend: 'selected',
+                        titleAttr: 'Ejecutar acción masiva',
+                        text: '<i class="fa-solid fa-bolt fa-fw"></i>',
+                        className: 'btn-sm',
+                        action: function (e, dt, button, config) {
+                            var rowsSelected = dt.rows({ selected: true }).indexes();
+                            if (rowsSelected.length == 0) {
+                                __.alert('Seleccionar al menos un registro para ejecutar una acción masiva.');
+                            } else {
+                                __.alert('Acciones masivas no disponibles...');
+                            }
+                        }
+                    },
+                    {
+                        extend: 'selectAll',
+                        titleAttr: 'Seleccionar todas las filas',
+                        text: '<i class="fa-solid fa-check-square fa-fw"></i>',
+                        className: 'btn-sm',
+                    },
+                    {
+                        extend: 'selectNone',
+                        titleAttr: 'Quitar la selección de todas las filas',
+                        text: '<i class="fa-solid fa-square fa-fw"></i>',
+                        className: 'btn-sm',
+                    },
+                    {
+                        //extend: 'showSelected',
+                        titleAttr: 'Mostrar solo filas seleccionadas',
+                        text: '<i class="fa-solid fa-list-check fa-fw"></i>',
+                        className: 'btn-sm',
+                        action: function(e, dt, node, config) {
+                            dt.rows().nodes().to$().hide();
+                            dt.rows({ selected: true }).nodes().to$().show();
+                        },
+                    },
+                    {
+                        extend: 'copy',
+                        titleAttr: 'Copiar',
+                        text: '<i class="fa-solid fa-copy fa-fw"></i>',
+                        className: 'btn-sm',
+                        exportOptions: {
+                            columns: ':not(:first-child):not(:last-child)'
+                        }
+                    },
+                    {
+                        extend: 'csv',
+                        titleAttr: 'Descargar archivo CSV',
+                        text: '<i class="fa-solid fa-file-csv fa-fw"></i>',
+                        className: 'btn-sm',
+                        exportOptions: {
+                            columns: ':not(:first-child):not(:last-child)'
+                        },
+                        customize: function (csv) {
+                            var csvRows = csv.split('\n');
+                            csvRows.splice(1, 1);
+                            return csvRows.join('\n');
+                        }
+                    },
+                    {
+                        extend: 'excel',
+                        titleAttr: 'Descargar archivo Excel',
+                        text: '<i class="fa-solid fa-file-excel fa-fw"></i>',
+                        className: 'btn-sm',
+                        exportOptions: {
+                            columns: ':not(:first-child):not(:last-child)'
+                        }
+                    },
+                    {
+                        extend: 'pdf',
+                        titleAttr: 'Descargar archivo PDF',
+                        text: '<i class="fa-solid fa-file-pdf fa-fw"></i>',
+                        className: 'btn-sm',
+                        exportOptions: {
+                            columns: ':not(:first-child):not(:last-child)'
+                        }
+                    },
+                    {
+                        extend: 'print',
+                        titleAttr: 'Imprimir la tabla',
+                        text: '<i class="fa-solid fa-print fa-fw"></i>',
+                        className: 'btn-sm',
+                        exportOptions: {
+                            columns: ':not(:first-child):not(:last-child)',
+                        },
+                        customize: function (win) {
+                            $(win.document.body).find('thead tr:eq(1)').remove();
+                        }
+                    },
+                    {
+                        extend: 'colvis',
+                        titleAttr: 'Personalizar las columnas de la tabla',
+                        text: '<i class="fa-solid fa-table-columns fa-fw"></i>',
+                        className: 'btn-sm',
+                        columns: ':not(:first-child):not(:last-child)'
+                    },
+                    {
+                        extend: 'createState',
+                        titleAttr: 'Guardar configuración actual de la tabla',
+                        text: '<i class="fa-solid fa-floppy-disk fa-fw"></i>',
+                        className: 'btn-sm',
+                    },
+                    {
+                        extend: 'savedStates',
+                        titleAttr: 'Restaurar configuración guardada de la tabla',
+                        text: '<i class="fa-solid fa-cogs fa-fw"></i>',
+                        className: 'btn-sm',
+                        config: {
+                            stateDuration: -1,
+                        },
+                        init: function(api, node, config) {
+                            var button = $(node);
+                            $.fn.dataTable.ext.buttons.savedStates.init(api, node, config);
+                            button.html('<i class="fa-solid fa-cogs fa-fw"></i>');
+                        }
+                    },
+                ]
+            },
+            /*bottom1Start: {
+                searchBuilder: {
+                    columns: ':not(:first-child):not(:last-child)',
+                },
+            },*/
+        },
+        select: {
+            style: 'os',
+            selector: 'td:not(:first-child):not(:last-child)',
+            headerCheckbox: 'select-page',
+            className: 'bg-light',
+            info: false
+        },
+        columns: [
+            // Columna con los checkboxes para acciones masivas.
+            {
+                data: null,
+                visible: true,
+                orderable: false,
+                searchable: false,
+                render: function(data, type, row) {
+                    var columns = {{ data.model.primary_key|json_encode() | raw }};
+                    var primaryKey = __.keyValues(columns, row);
+                    var dataAttributes = Object.entries(primaryKey).map(([key, value]) => {
+                        return `data-primary_key-${key}="${value}"`;
+                    }).join(" ");
+                    return `<div class="text-center"><input type="checkbox" name="row_id[]" class="form-check-input" value="${row.id}" ${dataAttributes} /></div>`;
+                }
+            },
+            // Columnas con los datos del modelo.
+            {% for field in data.model.list_display %}
+                {
+                    verbose_name: "{{ data.fields[field].verbose_name }}",
+                    data: "{{ data.fields[field].name }}",
+                    visible: {{ data.fields[field].show_in_list ? 1 : 0 }},
+                    orderable: true,
+                    searchable: {{ data.fields[field].searchable ? 1 : 0 }},
+                    render: function(data, type, row) {
+                        {% if data.fields[field].display %}
+                            return __.selector(row, '{{ data.fields[field].display|raw }}');
+                        {% elseif data.fields[field].cast == 'int' %}
+                            return data !== null ? __.num(data) : null;
+                        {% elseif data.fields[field].cast | slice(0, 5) == 'float' %}
+                            {% set decimals = data.fields[field].cast | slice(6) %}
+                            {% if decimals == '' %}
+                                {% set decimals = 2 %}
+                            {% endif %}
+                            return __.num(data, {{ decimals }});
+                        {% elseif data.fields[field].cast == 'bool' %}
+                            return data
+                                ? '<div class="text-center"><i class="fa-solid fa-check-circle fa-fw text-success"></i></div>'
+                                    + '<div class="d-none d-print-block">Si</div>'
+                                : '<div class="text-center"><i class="fa-solid fa-times-circle fa-fw text-danger"></i></div>'
+                                    + '<div class="d-none d-print-block">No</div>'
+                            ;
+                        {% elseif data.fields[field].cast == 'datetime' %}
+                            return moment(data).format("D MMMM YYYY, H:mm:ss");
+                        {% elseif data.fields[field].cast == 'date' %}
+                            return moment(data).format("D MMMM YYYY");
+                        {% else %}
+                            return data;
+                        {% endif %}
+                    }
+                },
+            {% endfor %}
+            // Columna con las acciones manuales (individuales) de cada registro.
+            {
+                data: null,
+                visible: true,
+                orderable: false,
+                searchable: false,
+                render: datatablesRenderActions
+            }
+        ],
+        responsive: {
+            details: {
+                type: 'column',
+                target: 0,
+                display: $.fn.dataTable.Responsive.display.modal({
+                    header: function(row) {
+                        var id = row.data().id.toString().replace(/\//g, ', ');
+                        return '{{ explode(':', data.model.label, 1) }}(' + id + ')';
+                    }
+                }),
+                renderer: $.fn.dataTable.Responsive.renderer.tableAll(),
+            }
+        },
+        {% if data.model.list_group_by %}
+            rowGroup: {
+                dataSrc: '{{ data.model.list_group_by }}',
+                startRender: function(rows, group) {
+                    if (group === true) {
+                        return '<i class="fa-solid fa-check-circle fa-fw text-success"></i>';
+                    } else if (group === false) {
+                        return '<i class="fa-solid fa-times-circle fa-fw text-danger"></i>';
+                    }
+                    return group == 'No group' ? '-' : group;
+                }
+            },
+        {% endif %}
+        initComplete: function () {
+            datatablesInitComplete(this.api());
+        }
+    });
+
+});
+
+// Configuraciones una vez que la tabla es inicializada con datatables.
+function datatablesInitComplete(api) {
+
+    // Utilizar la API proporcionada para obtener la tabla.
+    var table = api.table();
+
+    // Añadir eventos de búsqueda por columna.
+    $(table.table().header()).find('.filters-row th').each(function(index) {
+        var column = table.column((index + 1) + ':visible');
+
+        // Manejar eventos para inputs
+        $('input', this).on('keyup change', function() {
+            if (!this.value.length) {
+                column.search('').draw();
+            } else if (this.value.length >= 1 && column.search() !== this.value) {
+                column.search(this.value).draw();
+            }
+        });
+
+        // Manejar eventos para selects
+        $('select', this).on('change', function() {
+            if (!this.value.length) {
+                column.search('').draw();
+            } else if (column.search() !== this.value) {
+                column.search(this.value).draw();
+            }
+        });
+    });
+
+    // Evento cuando se selecciona uno o más elementos de la tabla.
+    table.on('select', function (e, dt, type, indexes) {
+        if (type === 'row') {
+            table.rows(indexes).nodes().to$().each(function() {
+                var checkbox = $(this).find('td:first-child input[type="checkbox"]');
+                if (!checkbox.prop('checked')) {
+                    checkbox.prop('checked', true);
+                    checkbox.trigger('change');
+                }
+            });
+        }
+    });
+
+    // Evento cuando se deselecciona uno o más elementos de la tabla.
+    table.on('deselect', function (e, dt, type, indexes) {
+        if (type === 'row') {
+            table.rows(indexes).nodes().to$().each(function() {
+                var checkbox = $(this).find('td:first-child input[type="checkbox"]');
+                if (checkbox.prop('checked')) {
+                    checkbox.prop('checked', false);
+                    checkbox.trigger('change');
+                }
+            });
+        }
+    });
+
+    // Evento para seleccionar/deseleccionar todos los registros visibles.
+    $(table.table().header()).find('input[type="checkbox"]').on('click', function() {
+        var rows = table.rows({ 'search': 'applied' }).nodes();
+        $(table.table().body()).find('input[name="row_id[]"]', rows)
+            .prop('checked', this.checked)
+            .trigger('change')
+        ;
+    });
+
+    // Evento para actualizar el estado de selección de la fila al cambiar el
+    // estado del checkbox.
+    table.on('change', 'input[name="row_id[]"]', function() {
+        var row = table.row('#' + this.value);
+        if (this.checked) {
+            row.select();
+        } else {
+            row.deselect();
+            var el = $(table.table().header()).find('input[type="checkbox"]').get(0);
+            if (el && el.checked && ('indeterminate' in el)) {
+                el.indeterminate = true;
+            }
+        }
+        var rowsSelected = table.rows({ selected: true }).count();
+        $(table.table().container()).find('.selected-rows').text(__.num(rowsSelected));
+
+    });
+
+    // Evento para reiniciar la tabla.
+    $(table.table().header()).find('.reset-table').on('click', function() {
+        table.search('').columns().search('').draw();
+        table.order([]).draw();
+        table.page.len({{ data.model.list_per_page }}).draw();
+        $(table.table().header()).find('.filters-row input').val('');
+    });
+
+    // Evento para cambiar el tipo de buscador de cada columna.
+    document.querySelectorAll('.toggle-form-search-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            var container = button.closest('.input-group');
+            var originalInput = container.querySelector('.toggle-form-search-input[data-type="original"]');
+            var alternateInput = container.querySelector('.toggle-form-search-input[data-type="alternate"]');
+
+            // Toggle visibility
+            originalInput.classList.toggle('d-none');
+            alternateInput.classList.toggle('d-none');
+
+            // Update button icon
+            if (originalInput.classList.contains('d-none')) {
+                if (originalInput.type === 'date' || originalInput.tagName.toLowerCase() === 'select') {
+                    button.innerHTML = '<i class="fa-solid fa-text-width"></i>';
+                }
+            } else {
+                if (originalInput.type === 'date') {
+                    button.innerHTML = '<i class="fa-solid fa-calendar"></i>';
+                } else if (originalInput.tagName.toLowerCase() === 'select') {
+                    button.innerHTML = '<i class="fa-solid fa-list"></i>';
+                }
+            }
+        });
+    });
+
+}
+
+// Función que renderiza las acciones de una fila de la tabla.
+function datatablesRenderActions(data, type, row) {
+
+    // Obtener las acciones del modelo.
+    var actionsData = {{ data.model.actions|json_encode() | raw }};
+    var actions = '';
+
+    if (actionsData.length === 0) {
+        actions += `
+            <a class="btn btn-primary btn-sm disabled">
+                <i class="fa-solid fa-minus fa-fw"></i>
+            </a>
+        `;
+        return actions;
+    }
+
+    if (actionsData.length === 1) {
+        // Si solo hay una acción, no mostrar dropdown.
+        var singleAction = actionsData[0];
+        var singleUrl = '{{_url}}{{_route.url.controller}}/' + singleAction.action + '/' + row.id.toString().split('/').map(encodeURIComponent).join('/');
+
+        if (singleAction.http_method === 'GET') {
+            actions += `
+                <a href="${singleUrl}" class="btn btn-primary btn-sm w-100">
+                    <i class="${singleAction.icon} fa-fw" title="${singleAction.label}"></i>
+                </a>
+            `;
+        } else {
+            var formAttributes = `action="${singleUrl}" method="POST" style="display:inline;"`;
+            if (singleAction.confirmation_message) {
+                var message = singleAction.confirmation_message
+                    .replace(':label', '{{ data.model.label }}')
+                    .replace(':id', row.id.toString().replace(/\//g, ', '))
+                ;
+                formAttributes += ` onsubmit="return __.confirm(this, '${message}');"`;
+            }
+            actions += `
+                <form ${formAttributes}>
+                    <input type="hidden" name="_method" value="${singleAction.http_method}">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="${singleAction.icon} fa-fw" title="${singleAction.label}"></i>
+                    </button>
+                </form>
+            `;
+        }
+    } else {
+        // Crear el botón y el menú de acciones manuales.
+        actions += '<div class="btn-group w-100">';
+
+        // Botón principal (primera acción fuera del dropdown).
+        var primaryAction = actionsData[0];
+        var primaryUrl = '{{_url}}{{_route.url.controller}}/' + primaryAction.action + '/' + row.id.toString().split('/').map(encodeURIComponent).join('/');
+
+        if (primaryAction.http_method === 'GET') {
+            actions += `
+                <a href="${primaryUrl}" class="btn btn-primary btn-sm">
+                    <i class="${primaryAction.icon} fa-fw" title="${primaryAction.label}"></i>
+                </a>
+            `;
+        } else {
+            var primaryFormAttributes = `action="${primaryUrl}" method="POST" style="display:inline;"`;
+            if (primaryAction.confirmation_message) {
+                var message = primaryAction.confirmation_message
+                    .replace(':label', '{{ data.model.label }}')
+                    .replace(':id', row.id.toString().replace(/\//g, ', '))
+                ;
+                primaryFormAttributes += ` onsubmit="return __.confirm(this, '${message}');"`;
+            }
+            actions += `
+                <form ${primaryFormAttributes}>
+                    <input type="hidden" name="_method" value="${primaryAction.http_method}">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="${primaryAction.icon} fa-fw" title="${primaryAction.label}"></i>
+                    </button>
+                </form>
+            `;
+        }
+
+        // Botón dropdown.
+        actions += `
+            <button type="button" class="btn btn-primary btn-sm dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                <span class="sr-only">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+        `;
+
+        // Variable para evitar dividers duplicados.
+        var previousDivider = false;
+
+        // Otras acciones dentro del dropdown.
+        actionsData.slice(1).forEach(function(action, index, array) {
+            var actionUrl = '{{_url}}{{_route.url.controller}}/' + action.action + '/' + row.id.toString().split('/').map(encodeURIComponent).join('/');
+
+            // Manejo de dividers.
+            if (action.divider_before && !previousDivider) {
+                actions += '<li><hr class="dropdown-divider"></li>';
+                previousDivider = true;
+            }
+
+            // Agregar la acción.
+            actions += '<li>';
+
+            if (action.http_method === 'GET') {
+                var confirmationAttributes = '';
+                if (action.confirmation_message) {
+                    var message = action.confirmation_message
+                        .replace(':label', '{{ data.model.label }}')
+                        .replace(':id', row.id.toString().replace(/\//g, ', '))
+                    ;
+                    confirmationAttributes = ` onclick="return __.confirm(this, '${message}');"`;
+                }
+                actions += `
+                    <a class="dropdown-item" href="${actionUrl}"${confirmationAttributes}>
+                        <i class="${action.icon} fa-fw"></i> ${action.label}
+                    </a>
+                `;
+            } else {
+                var formAttributes = `action="${actionUrl}" method="POST" style="display:inline;"`;
+                if (action.confirmation_message) {
+                    var message = action.confirmation_message
+                        .replace(':label', '{{ data.model.label }}')
+                        .replace(':id', row.id.toString().replace(/\//g, ', '))
+                    ;
+                    formAttributes += ` onsubmit="return __.confirm(this, '${message}');"`;
+                }
+                actions += `
+                    <form ${formAttributes}>
+                        <input type="hidden" name="_method" value="${action.http_method}">
+                        <button type="submit" class="dropdown-item">
+                            <i class="${action.icon} fa-fw"></i> ${action.label}
+                        </button>
+                    </form>
+                `;
+            }
+
+            actions += '</li>';
+
+            // Manejo de dividers.
+            if (action.divider_after && index < array.length - 1) {
+                actions += '<li><hr class="dropdown-divider"></li>';
+                previousDivider = true;
+            } else {
+                previousDivider = false;
+            }
+        });
+
+        actions += '</ul>';
+        actions += '</div>';
+    }
+
+    // Entregar las acciones.
+    return actions;
+}
+
+</script>
+
+{% endblock %}

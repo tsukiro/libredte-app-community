@@ -1,0 +1,21 @@
+{% extends "View/Layout/" ~ __view_layout ~ ".html.twig" %}
+
+{% block content %}
+
+<div class="page-header"><h1>{% block title %}Contacto{% endblock %}</h1></div>
+<p>Por favor envía tu mensaje a través del siguiente formulario, serás contactado a la brevedad.</p>
+
+{{ form_start(form) }}
+    {{ form_fields(form) }}
+    {{ form_captcha(form) }}
+    {{ form_csrf(form) }}
+    {{ form_submit('Enviar mensaje') }}
+{{ form_end(form) }}
+
+{% endblock %}
+
+{% block session_messages %}
+    {% if not form_is_valid(form) %}
+        {{ form_errors_global(form) }}
+    {% endif %}
+{% endblock %}
