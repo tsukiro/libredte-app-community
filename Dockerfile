@@ -3,7 +3,7 @@ FROM php:7.4-apache
 # Habilita módulos de Apache
 RUN a2enmod rewrite
 
-# Instala dependencias del sistema y extensiones PHP necesarias
+# Instala dependencias del sistema y extensiones necesarias
 RUN apt-get update && apt-get install -y \
     unzip \
     zip \
@@ -13,19 +13,22 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
-    && docker-php-ext-install pdo pdo_mysql zip gd
+    libc-client-dev \
+    libkrb5-dev \
+    && docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
+    && docker-php-ext-install pdo pdo_mysql zip gd soap imap
 
 # Instala Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Copia todo el código del proyecto
+# Copia tu proyecto dentro del contenedor
 COPY . /var/www/html
 
-# Define el directorio de trabajo
+# Establece el directorio de trabajo
 WORKDIR /var/www/html
 
-# Ejecuta Composer
+# Ejecuta composer install (con extensiones ya disponibles)
 RUN composer install --no-interaction --prefer-dist
 
-# Ajusta permisos para Apache
+# Permisos adecuados para Apache
 RUN chown -R www-data:www-data /var/www/html
