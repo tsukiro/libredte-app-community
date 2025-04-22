@@ -6,14 +6,19 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: libredte_app
-    ports:
-      - "8080:80"
     volumes:
       - .:/var/www/html
     environment:
-      - COMPOSER_ALLOW_SUPERUSER=1
+      COMPOSER_ALLOW_SUPERUSER: "1"
+      DB_HOST: db
+      DB_NAME: libredte
+      DB_USER: libredte
+      DB_PASSWORD: secret
     depends_on:
       - db
+    # Coolify espera que tu app exponga el puerto 80 internamente
+    expose:
+      - "80"
 
   db:
     image: mysql:5.7
@@ -26,8 +31,6 @@ services:
       MYSQL_PASSWORD: secret
     volumes:
       - db_data:/var/lib/mysql
-    ports:
-      - "3306:3306"
 
 volumes:
   db_data:

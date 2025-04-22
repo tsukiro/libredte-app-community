@@ -3,7 +3,7 @@ FROM php:7.4-apache
 # Habilita módulos de Apache
 RUN a2enmod rewrite
 
-# Instala dependencias del sistema y extensiones de PHP
+# Instala dependencias del sistema y extensiones PHP necesarias
 RUN apt-get update && apt-get install -y \
     unzip \
     zip \
@@ -18,14 +18,14 @@ RUN apt-get update && apt-get install -y \
 # Instala Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Copia el contenido del proyecto
+# Copia todo el código del proyecto
 COPY . /var/www/html
 
 # Define el directorio de trabajo
 WORKDIR /var/www/html
 
-# Corre composer install automáticamente
+# Ejecuta Composer
 RUN composer install --no-interaction --prefer-dist
 
-# Establece permisos básicos (opcional)
+# Ajusta permisos para Apache
 RUN chown -R www-data:www-data /var/www/html
