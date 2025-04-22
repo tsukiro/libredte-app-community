@@ -11,9 +11,9 @@ services:
     environment:
       - COMPOSER_ALLOW_SUPERUSER="1"
       - DB_HOST=db
-      - DB_NAME=${MYSQL_DB:-libredte}
-      - DB_USER=${SERVICE_USER_MYSQL}
-      - DB_PASSWORD=${SERVICE_PASSWORD_MYSQL}
+      - DB_NAME=${PGSQL_DB:-libredte}
+      - DB_USER=${SERVICE_USER_PGSQL}
+      - DB_PASSWORD=${SERVICE_PASSWORD_PGSQL}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - MESSENGER_REDIS_DSN=${REDIS_URL:-redis://localhost:6379}
@@ -24,17 +24,6 @@ services:
     expose:
       - "80"
 
-#  db:
-#    image: pgsql
-#    container_name: libredte_db
-#    restart: unless-stopped
-#    environment:
-#      - MYSQL_ROOT_PASSWORD=${SERVICE_PASSWORD_MYSQLROOT}
-#      - MYSQL_DATABASE=${MYSQL_DB:-libredte}
-#      - MYSQL_USER=${SERVICE_USER_MYSQL}
-#      - MYSQL_PASSWORD=${SERVICE_PASSWORD_MYSQL}
-#    volumes:
-#      - db_data:/var/lib/mysql
   db:
     image: postgres:13
     container_name: libredte_db
@@ -45,6 +34,7 @@ services:
       - POSTGRES_DB=${PGSQL_DB:-libredte}
     volumes:
       - db_data:/var/lib/postgresql/data
+
   redis:
     image: redis:alpine
     container_name: libredte_redis
