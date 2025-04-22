@@ -22,6 +22,8 @@ services:
     # Coolify espera que tu app exponga el puerto 80 internamente
     expose:
       - "80"
+    networks:
+      - libredte_network
 
   db:
     image: mysql:5.7
@@ -34,6 +36,8 @@ services:
       MYSQL_PASSWORD: secret
     volumes:
       - db_data:/var/lib/mysql
+    networks:
+      - libredte_network
 
   redis:
     image: redis:alpine
@@ -41,6 +45,12 @@ services:
     restart: unless-stopped
     ports:
       - "6379:6379"
+    networks:
+      - libredte_network
 
 volumes:
   db_data:
+
+networks:
+  libredte_network:
+    driver: bridge
