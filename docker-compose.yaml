@@ -9,13 +9,14 @@ services:
     volumes:
       - .:/var/www/html
     environment:
-      COMPOSER_ALLOW_SUPERUSER: "1"
-      DB_HOST: db
-      DB_NAME: libredte
-      DB_USER: libredte
-      DB_PASSWORD: secret
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      - SERVICE_FQDN_LIBREDTE
+      - COMPOSER_ALLOW_SUPERUSER="1"
+      - 'DB_HOST=${MYSQL_DB:-libredte}'
+      - 'DB_NAME=${SERVICE_USER_MYSQL}'
+      - 'DB_USER=${SERVICE_USER_MYSQL}'
+      - 'DB_PASSWORD=${SERVICE_PASSWORD_MYSQL}'
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
       - db
       - redis
@@ -26,14 +27,14 @@ services:
       - libredte_network
 
   db:
-    image: mysql:5.7
+    image: mysql:8
     container_name: libredte_db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: libredte
-      MYSQL_USER: libredte
-      MYSQL_PASSWORD: secret
+      - 'MYSQL_ROOT_PASSWORD=${SERVICE_PASSWORD_MYSQLROOT}'
+      - 'MYSQL_DATABASE=${MYSQL_DB:-libredte}'
+      - MYSQL_USER=${SERVICE_USER_MYSQL}
+      - MYSQL_PASSWORD=${SERVICE_PASSWORD_MYSQL}
     volumes:
       - db_data:/var/lib/mysql
     networks:
