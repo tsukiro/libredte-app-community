@@ -32,5 +32,12 @@ services:
     volumes:
       - db_data:/var/lib/mysql
 
+  redis:
+    image: redis:alpine
+    container_name: libredte_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
 volumes:
   db_data:
