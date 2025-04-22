@@ -24,14 +24,14 @@ RUN pecl install redis && docker-php-ext-enable redis
 # Instala Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-ENV COMPOSER_ALLOW_SUPERUSER=1 \
-    DB_HOST=db \
-    DB_NAME=libredte \
-    DB_USER=libredte \
-    DB_PASSWORD=agVotUQV0 \
-    REDIS_HOST=redis \
-    REDIS_PORT=6379 \
-    MESSENGER_REDIS_DSN=redis://localhost:6379
+#ENV COMPOSER_ALLOW_SUPERUSER=1 \
+#    DB_HOST=db \
+#    DB_NAME=libredte \
+#    DB_USER=libredte \
+#    DB_PASSWORD= \
+#    REDIS_HOST=redis \
+#    REDIS_PORT=6379 \
+#    MESSENGER_REDIS_DSN=redis://localhost:6379
 # Copia tu proyecto
 COPY . /var/www/html
 
