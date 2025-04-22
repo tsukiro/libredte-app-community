@@ -14,8 +14,11 @@ services:
       DB_NAME: libredte
       DB_USER: libredte
       DB_PASSWORD: secret
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     depends_on:
       - db
+      - redis
     # Coolify espera que tu app exponga el puerto 80 internamente
     expose:
       - "80"
