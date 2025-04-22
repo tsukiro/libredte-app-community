@@ -11,10 +11,10 @@ services:
     environment:
       - SERVICE_FQDN_LIBREDTE
       - COMPOSER_ALLOW_SUPERUSER="1"
-      - 'DB_HOST=${MYSQL_DB:-libredte}'
-      - 'DB_NAME=${SERVICE_USER_MYSQL}'
-      - 'DB_USER=${SERVICE_USER_MYSQL}'
-      - 'DB_PASSWORD=${SERVICE_PASSWORD_MYSQL}'
+      - DB_HOST=${MYSQL_DB:-libredte}
+      - DB_NAME=${SERVICE_USER_MYSQL}
+      - DB_USER=${SERVICE_USER_MYSQL}
+      - DB_PASSWORD=${SERVICE_PASSWORD_MYSQL}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     depends_on:
@@ -31,10 +31,10 @@ services:
     container_name: libredte_db
     restart: unless-stopped
     environment:
-      - 'MYSQL_ROOT_PASSWORD=${SERVICE_PASSWORD_MYSQLROOT}'
-      - 'MYSQL_DATABASE=${MYSQL_DB:-libredte}'
-      - 'MYSQL_USER=${SERVICE_USER_MYSQL}'
-      - 'MYSQL_PASSWORD=${SERVICE_PASSWORD_MYSQL}'
+      - MYSQL_ROOT_PASSWORD=${SERVICE_PASSWORD_MYSQLROOT}
+      - MYSQL_DATABASE=${MYSQL_DB:-libredte}
+      - MYSQL_USER=${SERVICE_USER_MYSQL}
+      - MYSQL_PASSWORD=${SERVICE_PASSWORD_MYSQL}
     volumes:
       - db_data:/var/lib/mysql
     networks:

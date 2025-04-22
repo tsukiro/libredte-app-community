@@ -8,7 +8,7 @@
 # Clave de encriptación.
 # Formato clave: base64:KEY
 # Generador online: https://generate-random.org/laravel-key-generator
-APP_KEY=""
+APP_KEY="base64:d2d6ZmY2NmtxeW9oOXQ5aWZmbTZpcmdkcjd5djFqM2E="
 
 # Configuración de base de datos (PostgreSQL).
 #DB_HOST="host.docker.internal"
@@ -17,7 +17,7 @@ DB_PASSWORD=""
 #DB_DATABASE="libredte"
 
 # Configuración de caché (Redis).
-#REDIS_HOST="host.docker.internal"
+REDIS_HOST="redis"
 
 # Configuración de correo electrónico.
 #MAIL_HOST="smtp.gmail.com"
