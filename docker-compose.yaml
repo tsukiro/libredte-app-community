@@ -9,10 +9,9 @@ services:
     volumes:
       - .:/var/www/html
     environment:
-      - SERVICE_FQDN_LIBREDTE
       - COMPOSER_ALLOW_SUPERUSER="1"
-      - DB_HOST=${MYSQL_DB:-libredte}
-      - DB_NAME=${SERVICE_USER_MYSQL}
+      - DB_HOST=db
+      - DB_NAME=${MYSQL_DB:-libredte}
       - DB_USER=${SERVICE_USER_MYSQL}
       - DB_PASSWORD=${SERVICE_PASSWORD_MYSQL}
       - REDIS_HOST=redis
