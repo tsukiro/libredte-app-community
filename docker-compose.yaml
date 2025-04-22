@@ -2,56 +2,32 @@ version: '3.8'
 
 services:
   app:
-    image: php:7.4-apache
-    container_name: libredte-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: libredte_app
+    ports:
+      - "8080:80"
     volumes:
       - .:/var/www/html
-      - ./config/php.ini:/usr/local/etc/php/php.ini # Configuración personalizada de PHP
-    ports:
-      - "80:80"
     environment:
-      - APACHE_DOCUMENT_ROOT=/var/www/html/public
-    working_dir: /var/www/html
+      - COMPOSER_ALLOW_SUPERUSER=1
     depends_on:
       - db
-      - redis
-    networks:
-      - libredte-network
-    command: bash -c "composer install && apache2-foreground"
 
   db:
-    image: postgres:13
-    container_name: libredte-db
+    image: mysql:5.7
+    container_name: libredte_db
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: libredte
-      POSTGRES_PASSWORD: libredte
-      POSTGRES_DB: libredte
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: libredte
+      MYSQL_USER: libredte
+      MYSQL_PASSWORD: secret
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - db_data:/var/lib/mysql
     ports:
-      - "5432:5432"
-    networks:
-      - libredte-network
-
-  redis:
-    image: redis:6
-    container_name: libredte-redis
-    ports:
-      - "6379:6379"
-    networks:
-      - libredte-network
-
-  composer:
-    image: composer:2
-    container_name: libredte-composer
-    volumes:
-      - .:/app
-    working_dir: /app
-    entrypoint: ["composer"]
+      - "3306:3306"
 
 volumes:
   db_data:
-
-networks:
-  libredte-network:
-    driver: bridge
