@@ -28,7 +28,7 @@
     "repositories": [
         {
             "type": "path",
-            "url": "../sowerphp-framework"
+            "url": "./sowerphp-framework"
         }
     ]
 }
