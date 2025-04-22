@@ -66,6 +66,17 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
+        'mysql' => [
+            'driver' => 'mysql',
+            'host' => env('DB_HOST', 'host.docker.internal'),
+            'port' => env('DB_PORT', 5432),
+            'username' => env('DB_USERNAME', 'libredte'),
+            'password' => env('DB_PASSWORD'),
+            'database' => env('DB_DATABASE', 'libredte'),
+            'charset' => 'utf8',
+            'prefix' => ''
+        ],
+
     ],
 
     /*
