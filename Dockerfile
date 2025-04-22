@@ -18,17 +18,20 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
     && docker-php-ext-install pdo pdo_mysql zip gd soap imap
 
+# Instala la extensión PHP Redis
+RUN pecl install redis && docker-php-ext-enable redis
+
 # Instala Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Copia tu proyecto dentro del contenedor
+# Copia tu proyecto
 COPY . /var/www/html
 
-# Establece el directorio de trabajo
+# Define el directorio de trabajo
 WORKDIR /var/www/html
 
-# Ejecuta composer install (con extensiones ya disponibles)
+# Ejecuta composer
 RUN composer install --no-interaction --prefer-dist
 
-# Permisos adecuados para Apache
+# Permisos adecuados
 RUN chown -R www-data:www-data /var/www/html
