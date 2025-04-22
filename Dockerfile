@@ -30,7 +30,8 @@ ENV COMPOSER_ALLOW_SUPERUSER=1 \
     DB_USER=libredte \
     DB_PASSWORD=agVotUQV0 \
     REDIS_HOST=redis \
-    REDIS_PORT=6379
+    REDIS_PORT=6379 \
+    MESSENGER_REDIS_DSN=redis://localhost:6379
 # Copia tu proyecto
 COPY . /var/www/html
 

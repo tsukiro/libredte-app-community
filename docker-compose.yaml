@@ -16,6 +16,7 @@ services:
       - DB_PASSWORD=${SERVICE_PASSWORD_MYSQL}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - MESSENGER_REDIS_DSN=${REDIS_URL:-redis://localhost:6379}
     depends_on:
       - db
       - redis
