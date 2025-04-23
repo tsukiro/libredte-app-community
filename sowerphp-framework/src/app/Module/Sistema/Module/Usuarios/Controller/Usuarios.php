@@ -91,7 +91,7 @@ class Controller_Usuarios extends \sowerphp\autoload\Controller_Model
                     $status = auth()->attempt([
                         'username' => $_POST['usuario'],
                         'password' => $_POST['contrasenia'],
-                        '2fa_token' => $_POST['auth2_token'] ?: null,
+                        '2fa_token' => null,
                     ]);
                     if ($status) {
                         $user = user();
