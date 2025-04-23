@@ -15,8 +15,9 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     libc-client-dev \
     libkrb5-dev \
+    libpq-dev \
     && docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
-    && docker-php-ext-install pdo pdo_mysql zip gd soap imap
+    && docker-php-ext-install pdo pdo_mysql pdo_pgsql zip gd soap imap
 
 # Instala la extensión PHP Redis
 RUN pecl install redis && docker-php-ext-enable redis
@@ -24,14 +25,6 @@ RUN pecl install redis && docker-php-ext-enable redis
 # Instala Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-#ENV COMPOSER_ALLOW_SUPERUSER=1 \
-#    DB_HOST=db \
-#    DB_NAME=libredte \
-#    DB_USER=libredte \
-#    DB_PASSWORD= \
-#    REDIS_HOST=redis \
-#    REDIS_PORT=6379 \
-#    MESSENGER_REDIS_DSN=redis://localhost:6379
 # Copia tu proyecto
 COPY . /var/www/html
 
