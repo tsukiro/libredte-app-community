@@ -36,5 +36,3 @@ RUN composer install --no-interaction --prefer-dist
 
 # Permisos adecuados
 RUN chown -R www-data:www-data /var/www/html
-
-RUN php bin/console migrations:migrate
