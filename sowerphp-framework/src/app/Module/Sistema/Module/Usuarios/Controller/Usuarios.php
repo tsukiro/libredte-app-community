@@ -75,7 +75,8 @@ class Controller_Usuarios extends \sowerphp\autoload\Controller_Model
             'redirect' => $redirect ? base64_decode ($redirect) : null,
             'self_register' => (bool)config('auth.self_register.enabled'),
             'language' => config('app.locale'),
-            'auth2_token_enabled' => \sowerphp\app\Model_Datasource_Auth2::tokenEnabled(),
+         //   'auth2_token_enabled' => \sowerphp\app\Model_Datasource_Auth2::tokenEnabled(),
+            'auth2_token_enabled' => false,
         ]);
         // Procesar inicio de sesión.
         if (isset($_POST['usuario'])) {
